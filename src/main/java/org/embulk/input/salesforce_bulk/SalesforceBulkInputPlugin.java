@@ -208,12 +208,12 @@ public class SalesforceBulkInputPlugin
             }
             pageBuilder.finish();
 
-            start_row_marker = queryResults.stream()
-                .map(item -> item.get(column))
-                .max(Comparator.naturalOrder()).orElse(null);
-
             // 取得した値の最大値を start_row_marker に設定
             if (column != null) {
+                start_row_marker = queryResults.stream()
+                    .map(item -> item.get(column))
+                    .max(Comparator.naturalOrder()).orElse(null);
+
                 if (start_row_marker == null) {
                     commitReport.set("start_row_marker", value);
                 } else {
