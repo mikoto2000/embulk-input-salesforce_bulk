@@ -38,6 +38,8 @@ import org.embulk.spi.SchemaConfig;
 
 import org.embulk.spi.time.Timestamp;
 
+import org.slf4j.Logger;
+
 public class SalesforceBulkInputPlugin
         implements InputPlugin
 {
@@ -104,6 +106,8 @@ public class SalesforceBulkInputPlugin
         public BufferAllocator getBufferAllocator();
     }
 
+    private Logger log = Exec.getLogger(SalesforceBulkInputPlugin.class);
+
     @Override
     public ConfigDiff transaction(ConfigSource config,
             InputPlugin.Control control)
@@ -158,12 +162,15 @@ public class SalesforceBulkInputPlugin
         String start_row_marker = null;
         CommitReport commitReport = Exec.newCommitReport();
 
+        log.info("Try login to '{}'.", task.getAuthEndpointUrl());
         try (SalesforceBulkWrapper sfbw = new SalesforceBulkWrapper(
                 task.getUserName(),
                 task.getPassword(),
                 task.getAuthEndpointUrl(),
                 task.getCompression(),
                 task.getPollingIntervalMillisecond())) {
+
+            log.info("Login success.");
 
             // クエリの作成
             String querySelectFrom = task.getQuerySelectFrom();
@@ -191,6 +198,8 @@ public class SalesforceBulkInputPlugin
 
             query += queryWhere;
             query += " ORDER BY " + queryOrder;
+
+            log.info("Send request : '{}'", query);
 
             List<Map<String, String>> queryResults = sfbw.syncQuery(
                     task.getObjectType(), query);
@@ -221,7 +230,7 @@ public class SalesforceBulkInputPlugin
                 }
             }
         } catch (ConnectionException|AsyncApiException|InterruptedException|IOException e) {
-            e.printStackTrace();
+            log.error("{}", e.getClass(), e);
         }
 
         return commitReport;
