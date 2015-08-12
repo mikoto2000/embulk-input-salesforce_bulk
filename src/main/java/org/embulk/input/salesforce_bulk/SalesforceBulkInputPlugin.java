@@ -8,6 +8,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalField;
 
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,7 @@ import org.embulk.config.TaskSource;
 
 import org.embulk.spi.BufferAllocator;
 import org.embulk.spi.Column;
+import org.embulk.spi.ColumnConfig;
 import org.embulk.spi.ColumnVisitor;
 import org.embulk.spi.Exec;
 import org.embulk.spi.InputPlugin;
@@ -59,9 +61,19 @@ public class SalesforceBulkInputPlugin
         @Config("objectType")
         public String getObjectType();
 
-        // SOQL クエリ文字列
-        @Config("query")
-        public String getQuery();
+        // SOQL クエリ文字列 SELECT, FROM
+        @Config("querySelectFrom")
+        public String getQuerySelectFrom();
+
+        // SOQL クエリ文字列 WHERE
+        @Config("queryWhere")
+        @ConfigDefault("null")
+        public Optional<String> getQueryWhere();
+
+        // SOQL クエリ文字列 ORDER BY
+        @Config("queryOrder")
+        @ConfigDefault("null")
+        public Optional<String> getQueryOrder();
 
         // 圧縮設定
         @Config("isCompression")
@@ -77,6 +89,16 @@ public class SalesforceBulkInputPlugin
         @Config("columns")
         public SchemaConfig getColumns();
 
+        // next config のための最終レコード判定用カラム名
+        @Config("startRowMarkerName")
+        @ConfigDefault("null")
+        public Optional<String> getStartRowMarkerName();
+
+        // next config のための最終レコード値
+        @Config("start_row_marker")
+        @ConfigDefault("null")
+        public Optional<String> getStartRowMarker();
+
         // 謎。バッファアロケーターの実装を定義？
         @ConfigInject
         public BufferAllocator getBufferAllocator();
@@ -91,7 +113,8 @@ public class SalesforceBulkInputPlugin
         Schema schema = task.getColumns().toSchema();
         int taskCount = 1;  // number of run() method calls
 
-        return resume(task.dump(), schema, taskCount, control);
+        ConfigDiff returnConfigDiff = resume(task.dump(), schema, taskCount, control);
+        return returnConfigDiff;
     }
 
     @Override
@@ -99,8 +122,19 @@ public class SalesforceBulkInputPlugin
             Schema schema, int taskCount,
             InputPlugin.Control control)
     {
-        control.run(taskSource, schema, taskCount);
-        return Exec.newConfigDiff();
+        List<CommitReport> commitReportList =
+                control.run(taskSource, schema, taskCount);
+
+        // start_row_marker を ConfigDiff にセット
+        ConfigDiff configDiff = Exec.newConfigDiff();
+        for (CommitReport commitReport : commitReportList) {
+            final String label = "start_row_marker";
+            final String startRowMarker = commitReport.get(String.class, label, null);
+            if (startRowMarker != null) {
+                configDiff.set(label, startRowMarker);
+            }
+        }
+        return configDiff;
     }
 
     @Override
@@ -120,6 +154,10 @@ public class SalesforceBulkInputPlugin
         BufferAllocator allocator = task.getBufferAllocator();
         PageBuilder pageBuilder = new PageBuilder(allocator, schema, output);
 
+        // start_row_marker 取得のための前準備
+        String start_row_marker = null;
+        CommitReport commitReport = Exec.newCommitReport();
+
         try (SalesforceBulkWrapper sfbw = new SalesforceBulkWrapper(
                 task.getUserName(),
                 task.getPassword(),
@@ -127,8 +165,35 @@ public class SalesforceBulkInputPlugin
                 task.getCompression(),
                 task.getPollingIntervalMillisecond())) {
 
+            // クエリの作成
+            String querySelectFrom = task.getQuerySelectFrom();
+            String queryWhere = task.getQueryWhere().or("");
+            String queryOrder = task.getQueryOrder().or("");
+            String column = task.getStartRowMarkerName().orNull();
+            String value = task.getStartRowMarker().orNull();
+
+            String query;
+            query = querySelectFrom;
+
+            if (!queryWhere.isEmpty()) {
+                queryWhere = " WHERE " + queryWhere;
+            }
+
+            if (column != null && value != null) {
+                if (queryWhere.isEmpty()) {
+                    queryWhere += " WHERE ";
+                } else {
+                    queryWhere += " AND ";
+                }
+
+                queryWhere += column + " > " + value;
+            }
+
+            query += queryWhere;
+            query += " ORDER BY " + queryOrder;
+
             List<Map<String, String>> queryResults = sfbw.syncQuery(
-                    task.getObjectType(), task.getQuery());
+                    task.getObjectType(), query);
 
             for (Map<String, String> row : queryResults) {
                 // Visitor 作成
@@ -142,11 +207,24 @@ public class SalesforceBulkInputPlugin
                 pageBuilder.addRecord();
             }
             pageBuilder.finish();
+
+            start_row_marker = queryResults.stream()
+                .map(item -> item.get(column))
+                .max(Comparator.naturalOrder()).orElse(null);
+
+            // 取得した値の最大値を start_row_marker に設定
+            if (column != null) {
+                if (start_row_marker == null) {
+                    commitReport.set("start_row_marker", value);
+                } else {
+                    commitReport.set("start_row_marker", start_row_marker);
+                }
+            }
         } catch (ConnectionException|AsyncApiException|InterruptedException|IOException e) {
             e.printStackTrace();
         }
 
-        return Exec.newCommitReport();
+        return commitReport;
     }
 
     @Override
