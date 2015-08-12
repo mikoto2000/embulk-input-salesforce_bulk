@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.sforce.async.AsyncApiException;
+import com.sforce.async.AsyncExceptionCode;
 import com.sforce.async.BatchInfo;
 import com.sforce.async.BatchStateEnum;
 import com.sforce.async.BulkConnection;
@@ -113,7 +114,8 @@ public class SalesforceBulkWrapper implements AutoCloseable {
         bulkConnection.updateJob(closeJob);
 
         // 実行状況取得
-        BatchStateEnum state = waitBatch(batchInfo);
+        batchInfo = waitBatch(batchInfo);
+        BatchStateEnum state = batchInfo.getState();
 
         // 実行結果取得
         if (state == BatchStateEnum.Completed) {
@@ -123,7 +125,7 @@ public class SalesforceBulkWrapper implements AutoCloseable {
                             batchInfo.getId());
             return getQueryResultMapList(batchInfo, queryResultList);
         } else {
-            throw new RuntimeException(batchInfo.getStateMessage());
+            throw new AsyncApiException(batchInfo.getStateMessage(), AsyncExceptionCode.InvalidBatch);
         }
     }
 
@@ -190,7 +192,7 @@ public class SalesforceBulkWrapper implements AutoCloseable {
         return new BulkConnection(config);
     }
 
-    private BatchStateEnum waitBatch(BatchInfo batchInfo)
+    private BatchInfo waitBatch(BatchInfo batchInfo)
             throws InterruptedException, AsyncApiException {
         while(true) {
             Thread.sleep(pollingIntervalMillisecond);
@@ -201,7 +203,7 @@ public class SalesforceBulkWrapper implements AutoCloseable {
             if (state == BatchStateEnum.Completed ||
                     state == BatchStateEnum.Failed ||
                     state == BatchStateEnum.NotProcessed) {
-                return state;
+                return batchInfo;
             }
         }
     }
