@@ -272,7 +272,13 @@ public class SalesforceBulkInputPlugin
             if (value == null) {
                 pageBuilder.setNull(column);
             } else {
-                pageBuilder.setLong(column, Long.parseLong(value));
+                try {
+                    pageBuilder.setLong(column, Long.parseLong(value));
+                } catch (NumberFormatException e) {
+                    log.error("NumberFormatError: Row: {}", row);
+                    log.error("{}", e);
+                    pageBuilder.setNull(column);
+                }
             }
         }
 
@@ -282,7 +288,13 @@ public class SalesforceBulkInputPlugin
             if (value == null) {
                 pageBuilder.setNull(column);
             } else {
-                pageBuilder.setDouble(column, Double.parseDouble(value));
+                try {
+                    pageBuilder.setDouble(column, Double.parseDouble(value));
+                } catch (NumberFormatException e) {
+                    log.error("NumberFormatError: Row: {}", row);
+                    log.error("{}", e);
+                    pageBuilder.setNull(column);
+                }
             }
         }
 
