@@ -194,7 +194,10 @@ public class SalesforceBulkInputPlugin
             }
 
             query += queryWhere;
-            query += " ORDER BY " + queryOrder;
+
+            if (!queryOrder.isEmpty()) {
+                query += " ORDER BY " + queryOrder;
+            }
 
             log.info("Send request : '{}'", query);
 
