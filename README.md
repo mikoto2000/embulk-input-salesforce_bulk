@@ -41,7 +41,7 @@ in:
   columns:
   - {type: string, name: Id}
   - {type: string, name: Name}
-  - {type: timestamp, name: LastModifiedDate, format: 'yyyy-MM-dd''T''HH:mm:ss.SSSzzz'}
+  - {type: timestamp, name: LastModifiedDate, format: '%FT%T.%L%Z'}
 ```
 
 ### 前回取得時点から変更があったオブジェクトのみ取得
@@ -64,7 +64,7 @@ in:
   columns:
   - {type: string, name: Id}
   - {type: string, name: Name}
-  - {type: timestamp, name: LastModifiedDate, format: 'yyyy-MM-dd''T''HH:mm:ss.SSSzzz'}
+  - {type: timestamp, name: LastModifiedDate, format: '%FT%T.%L%Z'}
   startRowMarkerName: LastModifiedDate
 ```
 

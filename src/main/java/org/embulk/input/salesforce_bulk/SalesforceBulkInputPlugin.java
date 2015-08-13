@@ -1,20 +1,17 @@
 package org.embulk.input.salesforce_bulk;
 
 import com.google.common.base.Optional;
+import com.sforce.async.AsyncApiException;
+import com.sforce.ws.ConnectionException;
 
 import java.io.IOException;
-
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalField;
-
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-
-import com.sforce.async.AsyncApiException;
-import com.sforce.ws.ConnectionException;
 
 import org.embulk.config.CommitReport;
 import org.embulk.config.Config;
@@ -24,7 +21,6 @@ import org.embulk.config.ConfigInject;
 import org.embulk.config.ConfigSource;
 import org.embulk.config.Task;
 import org.embulk.config.TaskSource;
-
 import org.embulk.spi.BufferAllocator;
 import org.embulk.spi.Column;
 import org.embulk.spi.ColumnConfig;
@@ -35,8 +31,11 @@ import org.embulk.spi.PageBuilder;
 import org.embulk.spi.PageOutput;
 import org.embulk.spi.Schema;
 import org.embulk.spi.SchemaConfig;
-
 import org.embulk.spi.time.Timestamp;
+import org.embulk.spi.time.TimestampParseException;
+import org.embulk.spi.time.TimestampParser;
+import org.embulk.spi.util.Timestamps;
+import org.slf4j.Logger;
 
 import org.slf4j.Logger;
 
@@ -44,7 +43,7 @@ public class SalesforceBulkInputPlugin
         implements InputPlugin
 {
     public interface PluginTask
-            extends Task
+            extends Task, TimestampParser.Task
     {
         // 認証用エンドポイントURL
         @Config("authEndpointUrl")
@@ -197,7 +196,10 @@ public class SalesforceBulkInputPlugin
             }
 
             query += queryWhere;
-            query += " ORDER BY " + queryOrder;
+
+            if (!queryOrder.isEmpty()) {
+                query += " ORDER BY " + queryOrder;
+            }
 
             log.info("Send request : '{}'", query);
 
@@ -244,13 +246,15 @@ public class SalesforceBulkInputPlugin
 
     class ColumnVisitorImpl implements ColumnVisitor {
         private final Map<String, String> row;
-        private final PluginTask task;
+        private final TimestampParser[] timestampParsers;
         private final PageBuilder pageBuilder;
 
         ColumnVisitorImpl(Map<String, String> row, PluginTask task, PageBuilder pageBuilder) {
             this.row = row;
-            this.task = task;
             this.pageBuilder = pageBuilder;
+
+            this.timestampParsers = Timestamps.newTimestampColumnParsers(
+                    task, task.getColumns());
         }
 
         @Override
@@ -295,20 +299,14 @@ public class SalesforceBulkInputPlugin
 
         @Override
         public void timestampColumn(Column column) {
-            // TODO: 毎回取りに行くのをやめたい。
-            String format = task.getColumns().getColumn(
-                    column.getIndex()).getOption().get(String.class, "format");
-
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
-
-            String dateStr = row.get(column.getName());
-            ZonedDateTime zonedDateTime = ZonedDateTime.parse(dateStr, formatter);
-            if (zonedDateTime == null) {
-                pageBuilder.setNull(column);
-            } else {
-                Date d = Date.from(zonedDateTime.toInstant());
-                Timestamp timestamp = Timestamp.ofEpochMilli(d.getTime());
+            try {
+                Timestamp timestamp = timestampParsers[column.getIndex()]
+                        .parse(row.get(column.getName()));
                 pageBuilder.setTimestamp(column, timestamp);
+            } catch (TimestampParseException e) {
+                log.error("TimestampParseError: Row: {}", row);
+                log.error("{}", e);
+                pageBuilder.setNull(column);
             }
         }
     }
