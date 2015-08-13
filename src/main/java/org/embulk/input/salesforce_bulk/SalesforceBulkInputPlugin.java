@@ -208,7 +208,6 @@ public class SalesforceBulkInputPlugin
 
             for (Map<String, String> row : queryResults) {
                 // Visitor 作成
-                // TODO: 毎回作るのをやめたい。
                 ColumnVisitor visitor = new ColumnVisitorImpl(row, task, pageBuilder);
 
                 // スキーマ解析
@@ -259,31 +258,31 @@ public class SalesforceBulkInputPlugin
 
         @Override
         public void booleanColumn(Column column) {
-            Boolean value = new Boolean(row.get(column.getName()));
+            String value = row.get(column.getName());
             if (value == null) {
                 pageBuilder.setNull(column);
             } else {
-                pageBuilder.setBoolean(column, value);
+                pageBuilder.setBoolean(column, Boolean.parseBoolean(value));
             }
         }
 
         @Override
         public void longColumn(Column column) {
-            Long value = new Long(row.get(column.getName()));
+            String value = row.get(column.getName());
             if (value == null) {
                 pageBuilder.setNull(column);
             } else {
-                pageBuilder.setLong(column, value);
+                pageBuilder.setLong(column, Long.parseLong(value));
             }
         }
 
         @Override
         public void doubleColumn(Column column) {
-            Double value = new Double(row.get(column.getName()));
+            String value = row.get(column.getName());
             if (value == null) {
                 pageBuilder.setNull(column);
             } else {
-                pageBuilder.setDouble(column, value);
+                pageBuilder.setDouble(column, Double.parseDouble(value));
             }
         }
 
