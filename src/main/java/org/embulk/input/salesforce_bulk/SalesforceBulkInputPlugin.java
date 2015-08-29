@@ -13,7 +13,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import org.embulk.config.CommitReport;
+import org.embulk.config.TaskReport;
 import org.embulk.config.Config;
 import org.embulk.config.ConfigDefault;
 import org.embulk.config.ConfigDiff;
@@ -125,14 +125,14 @@ public class SalesforceBulkInputPlugin
             Schema schema, int taskCount,
             InputPlugin.Control control)
     {
-        List<CommitReport> commitReportList =
+        List<TaskReport> taskReportList =
                 control.run(taskSource, schema, taskCount);
 
         // start_row_marker を ConfigDiff にセット
         ConfigDiff configDiff = Exec.newConfigDiff();
-        for (CommitReport commitReport : commitReportList) {
+        for (TaskReport taskReport : taskReportList) {
             final String label = "start_row_marker";
-            final String startRowMarker = commitReport.get(String.class, label, null);
+            final String startRowMarker = taskReport.get(String.class, label, null);
             if (startRowMarker != null) {
                 configDiff.set(label, startRowMarker);
             }
@@ -143,12 +143,12 @@ public class SalesforceBulkInputPlugin
     @Override
     public void cleanup(TaskSource taskSource,
             Schema schema, int taskCount,
-            List<CommitReport> successCommitReports)
+            List<TaskReport> successTaskReports)
     {
     }
 
     @Override
-    public CommitReport run(TaskSource taskSource,
+    public TaskReport run(TaskSource taskSource,
             Schema schema, int taskIndex,
             PageOutput output)
     {
@@ -159,7 +159,7 @@ public class SalesforceBulkInputPlugin
 
         // start_row_marker 取得のための前準備
         String start_row_marker = null;
-        CommitReport commitReport = Exec.newCommitReport();
+        TaskReport taskReport = Exec.newTaskReport();
 
         log.info("Try login to '{}'.", task.getAuthEndpointUrl());
         try (SalesforceBulkWrapper sfbw = new SalesforceBulkWrapper(
@@ -225,16 +225,16 @@ public class SalesforceBulkInputPlugin
                     .max(Comparator.naturalOrder()).orElse(null);
 
                 if (start_row_marker == null) {
-                    commitReport.set("start_row_marker", value);
+                    taskReport.set("start_row_marker", value);
                 } else {
-                    commitReport.set("start_row_marker", start_row_marker);
+                    taskReport.set("start_row_marker", start_row_marker);
                 }
             }
         } catch (ConnectionException|AsyncApiException|InterruptedException|IOException e) {
             log.error("{}", e.getClass(), e);
         }
 
-        return commitReport;
+        return taskReport;
     }
 
     @Override
