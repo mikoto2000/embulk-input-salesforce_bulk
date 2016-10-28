@@ -141,7 +141,7 @@ public class SalesforceBulkWrapper implements AutoCloseable {
                             batchInfo.getJobId(),
                             batchInfo.getId(),
                             queryResultId));
-
+	    rdr.setMaxRowsInFile(2147483647);
             List<String> resultHeader = rdr.nextRecord();
             int resultCols = resultHeader.size();
 
