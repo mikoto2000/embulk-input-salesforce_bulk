@@ -13,12 +13,12 @@ configurations {
     provided
 }
 
-version = "0.1.0"
+version = "0.1.1"
 [compileJava, compileTestJava]*.options*.encoding = "UTF-8"
 
 dependencies {
-    compile 'com.force.api:force-wsc:34.+'
-    compile 'com.force.api:force-partner-api:34.+'
+    compile 'com.force.api:force-wsc:38.+'
+    compile 'com.force.api:force-partner-api:38.+'
     compile  "org.embulk:embulk-core:0.7.3"
     provided "org.embulk:embulk-core:0.7.3"
     testCompile "junit:junit:4.+"
