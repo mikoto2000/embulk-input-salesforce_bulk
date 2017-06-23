@@ -315,14 +315,19 @@ public class SalesforceBulkInputPlugin
 
         @Override
         public void timestampColumn(Column column) {
-            try {
-                Timestamp timestamp = timestampParsers[column.getIndex()]
-                        .parse(row.get(column.getName()));
-                pageBuilder.setTimestamp(column, timestamp);
-            } catch (TimestampParseException e) {
-                log.error("TimestampParseError: Row: {}", row);
-                log.error("{}", e);
+            String value = row.get(column.getName());
+            if (value == null) {
                 pageBuilder.setNull(column);
+            } else {
+                try {
+                    Timestamp timestamp = timestampParsers[column.getIndex()]
+                            .parse(value);
+                    pageBuilder.setTimestamp(column, timestamp);
+                } catch (TimestampParseException e) {
+                    log.error("TimestampParseError: Row: {}", row);
+                    log.error("{}", e);
+                    pageBuilder.setNull(column);
+                }
             }
         }
     }
