@@ -54,7 +54,7 @@ public class SalesforceBulkWrapper implements AutoCloseable {
     private boolean isCompression;
     private int pollingIntervalMillisecond;
 
-    private static final String API_VERSION = "34.0";
+    private static final String API_VERSION = "39.0";
     private static final String AUTH_ENDPOINT_URL_DEFAULT =
             "https://login.salesforce.com/services/Soap/u/" + API_VERSION;
 

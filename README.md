@@ -32,7 +32,7 @@ in:
   type: salesforce_bulk
   userName: USER_NAME
   password: PASSWORD
-  authEndpointUrl: https://login.salesforce.com/services/Soap/u/34.0
+  authEndpointUrl: https://login.salesforce.com/services/Soap/u/39.0
   objectType: Account
   pollingIntervalMillisecond: 5000
   querySelectFrom: SELECT Id,Name,LastModifiedDate FROM Account
@@ -56,7 +56,7 @@ in:
   type: salesforce_bulk
   userName: USER_NAME
   password: PASSWORD
-  authEndpointUrl: https://login.salesforce.com/services/Soap/u/34.0
+  authEndpointUrl: https://login.salesforce.com/services/Soap/u/39.0
   objectType: Account
   pollingIntervalMillisecond: 5000
   querySelectFrom: SELECT Id,Name,LastModifiedDate FROM Account
