@@ -103,6 +103,10 @@ public class SalesforceBulkInputPlugin
         // 謎。バッファアロケーターの実装を定義？
         @ConfigInject
         public BufferAllocator getBufferAllocator();
+
+        @Config("queryAll")
+        @ConfigDefault("false")
+        public Boolean getQueryAll();
     }
 
     private Logger log = Exec.getLogger(SalesforceBulkInputPlugin.class);
@@ -167,7 +171,8 @@ public class SalesforceBulkInputPlugin
                 task.getPassword(),
                 task.getAuthEndpointUrl(),
                 task.getCompression(),
-                task.getPollingIntervalMillisecond())) {
+                task.getPollingIntervalMillisecond(),
+                task.getQueryAll())) {
 
             log.info("Login success.");
 

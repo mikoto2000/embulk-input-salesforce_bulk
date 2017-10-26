@@ -22,6 +22,7 @@ Salesforce Bulk API の一括クエリ結果を取得します。
 - **columns**: schema config.(SchemaConfig, required)
 - **startRowMarkerName**: 開始レコードを特定するための目印とするカラム名を指定する.(String, default is null)
 - **start_row_marker**: 抽出条件に、『カラム「startRowMarkerName」がこの値よりも大きい』を追加する.(string, default is null)
+- **queryAll**: if true, uses the queryAll operation so that deleted records are returned.(boolean, default is false)
 
 ## Example
 
