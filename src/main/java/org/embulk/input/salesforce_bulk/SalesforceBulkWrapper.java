@@ -53,13 +53,15 @@ public class SalesforceBulkWrapper implements AutoCloseable {
     // Bulk 接続設定
     private boolean isCompression;
     private int pollingIntervalMillisecond;
+    private boolean queryAll;
 
-    private static final String API_VERSION = "34.0";
+    private static final String API_VERSION = "39.0";
     private static final String AUTH_ENDPOINT_URL_DEFAULT =
             "https://login.salesforce.com/services/Soap/u/" + API_VERSION;
 
     private static final boolean IS_COMPRESSION_DEFAULT = true;
     private static final int POLLING_INTERVAL_MILLISECOND_DEFAULT = 30000;
+    private static final boolean QUERY_ALL_DEFAULT = false;
 
     /**
      * Constructor
@@ -70,7 +72,8 @@ public class SalesforceBulkWrapper implements AutoCloseable {
                 password,
                 AUTH_ENDPOINT_URL_DEFAULT,
                 IS_COMPRESSION_DEFAULT,
-                POLLING_INTERVAL_MILLISECOND_DEFAULT);
+                POLLING_INTERVAL_MILLISECOND_DEFAULT,
+                QUERY_ALL_DEFAULT);
     }
 
     /**
@@ -81,7 +84,8 @@ public class SalesforceBulkWrapper implements AutoCloseable {
             String password,
             String authEndpointUrl,
             boolean isCompression,
-            int pollingIntervalMillisecond)
+            int pollingIntervalMillisecond,
+            boolean queryAll)
             throws AsyncApiException, ConnectionException {
 
         partnerConnection = createPartnerConnection(
@@ -91,6 +95,7 @@ public class SalesforceBulkWrapper implements AutoCloseable {
         bulkConnection = createBulkConnection(partnerConnection.getConfig());
 
         this.pollingIntervalMillisecond = pollingIntervalMillisecond;
+        this.queryAll = queryAll;
     }
 
     public List<Map<String, String>> syncQuery(String objectType, String query)
@@ -99,7 +104,11 @@ public class SalesforceBulkWrapper implements AutoCloseable {
         // ジョブ作成
         JobInfo jobInfo = new JobInfo();
         jobInfo.setObject(objectType);
-        jobInfo.setOperation(OperationEnum.query);
+        if (queryAll) {
+            jobInfo.setOperation(OperationEnum.queryAll);
+        } else {
+            jobInfo.setOperation(OperationEnum.query);
+        }
         jobInfo.setContentType(ContentType.CSV);
         jobInfo = bulkConnection.createJob(jobInfo);
 
