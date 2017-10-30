@@ -47,7 +47,7 @@ public class SalesforceBulkInputPlugin
     {
         // 認証用エンドポイントURL
         @Config("authEndpointUrl")
-        @ConfigDefault("https://login.salesforce.com/services/Soap/u/39.0")
+        @ConfigDefault("\"https://login.salesforce.com/services/Soap/u/39.0\"")
         public String getAuthEndpointUrl();
 
         // ユーザー名
