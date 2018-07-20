@@ -12,6 +12,8 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.embulk.config.TaskReport;
 import org.embulk.config.Config;
@@ -38,6 +40,8 @@ import org.embulk.spi.util.Timestamps;
 import org.slf4j.Logger;
 
 import org.slf4j.Logger;
+
+import com.sforce.soap.partner.Field;
 
 public class SalesforceBulkInputPlugin
         implements InputPlugin
@@ -245,6 +249,77 @@ public class SalesforceBulkInputPlugin
     @Override
     public ConfigDiff guess(ConfigSource config)
     {
+        PluginTask task = config.loadConfig(PluginTask.class);
+        try{
+            SalesforceBulkWrapper sfbw =
+                new SalesforceBulkWrapper(task.getUserName(),
+                                          task.getPassword(),
+                                          task.getAuthEndpointUrl(),
+                                          task.getCompression(),
+                                          task.getPollingIntervalMillisecond(),
+                                          task.getQueryAll()
+                                          );
+
+            Field[] fs = sfbw.getFieldsOf(task.getObjectType());
+            
+            /*
+             * columns:
+             * - type: integer
+             *   name: id
+             *   label: ID
+             * - type: string
+             *   name: name
+             *   label: 名前
+             */
+            List<Map<String, String>> columns = new ArrayList<Map<String, String>>();
+            for(Field f : fs){
+                Map<String, String> info = new HashMap<String, String>();
+                info.put("type",""+f.getType());
+                info.put("name",f.getName());
+                info.put("label",f.getLabel());
+                if(f.getLength() > 0){
+                    //info.put("size",f.getLength());
+                }
+                if(f.getPrecision() > 0){
+                    //info.put("precision",f.getPrecision());
+                }
+                columns.add(info);
+            };
+
+            return Exec.newConfigDiff().set("columns", columns);
+        } catch (ConnectionException|AsyncApiException e) {
+            log.error("{}", e.getClass(), e);
+        }
+
+        // LineDecoder.DecoderTask decoderTask = config.loadConfig(LineDecoder.DecoderTask.class);
+        // LineDecoder decoder = new LineDecoder(new ListFileInput(ImmutableList.of(ImmutableList.of((sample)))), decoderTask);
+
+        // List<String> sampleLines = new ArrayList<>();
+        // while (true) {
+        //     if (!decoder.nextFile()) {
+        //         break;
+        //     }
+        //     while (true) {
+        //         String line = decoder.poll();
+        //         if (line == null) {
+        //             break;
+        //         }
+        //         sampleLines.add(line);
+        //     }
+        // }
+
+        // GrokGuesser guesser = new GrokGuesser(
+        //                                       task.getGuessPatterns(),
+        //                                       task.getGrokPatternFiles()
+        //                                       );
+        // try {
+        //     String pattern = guesser.guessPattern(sampleLines);
+        //     List<Map<String, Object>> columns = guesser.guessColumns(sampleLines, pattern);
+        //     return Exec.newConfigDiff().set(
+        //                                     "parser", ImmutableMap.of("grok_pattern", pattern, "columns", columns));
+        // } catch (GrokException e) {
+        //     return Exec.newConfigDiff();
+        // }
         return Exec.newConfigDiff();
     }
 
