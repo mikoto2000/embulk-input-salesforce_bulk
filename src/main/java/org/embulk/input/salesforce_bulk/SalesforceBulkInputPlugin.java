@@ -115,6 +115,45 @@ public class SalesforceBulkInputPlugin
 
     private Logger log = Exec.getLogger(SalesforceBulkInputPlugin.class);
 
+    public static String castTypeName(String typename){
+        //  boolean, long, double, string, timestamp, json (through reference chain: java.util.ArrayList[0])
+        /*
+          "picklist"
+          "multipicklist"
+          "combobox"
+          "reference"
+          "base64"
+          "boolean"
+          "currency"
+          "textarea"
+          "int"
+          "double"
+          "percent"
+          "phone"
+          "id"
+          "date"
+          "datetime"
+          "time"
+          "url"
+          "email"
+          "encryptedstring"
+          "anyType"
+        */
+        switch(typename){
+        case "boolean":
+        case "double" :
+            return typename;
+        case "int" :
+            return "long";
+        case "date" :
+        case "datetime" :
+        case "time" :
+            return "timestamp";
+        default:
+            return "string";
+        }
+    }
+    
     @Override
     public ConfigDiff transaction(ConfigSource config,
             InputPlugin.Control control)
@@ -249,7 +288,9 @@ public class SalesforceBulkInputPlugin
     @Override
     public ConfigDiff guess(ConfigSource config)
     {
+        
         PluginTask task = config.loadConfig(PluginTask.class);
+
         try{
             SalesforceBulkWrapper sfbw =
                 new SalesforceBulkWrapper(task.getUserName(),
@@ -261,27 +302,30 @@ public class SalesforceBulkInputPlugin
                                           );
 
             Field[] fs = sfbw.getFieldsOf(task.getObjectType());
-            
-            /*
-             * columns:
-             * - type: integer
-             *   name: id
-             *   label: ID
-             * - type: string
-             *   name: name
-             *   label: 名前
-             */
+
+
+              // columns:
+              // - type: integer
+              //   name: id
+              //   label: ID
+              // - type: string
+              //   name: name
+              //   label: 名前
+             
             List<Map<String, String>> columns = new ArrayList<Map<String, String>>();
             for(Field f : fs){
                 Map<String, String> info = new HashMap<String, String>();
                 info.put("type",""+f.getType());
                 info.put("name",f.getName());
-                info.put("label",f.getLabel());
+                String label = f.getLabel();
+                if(label!=null || label.equals("")){
+                    info.put("label",label);
+                }
                 if(f.getLength() > 0){
-                    //info.put("size",f.getLength());
+                    info.put("size", ""+f.getLength());
                 }
                 if(f.getPrecision() > 0){
-                    //info.put("precision",f.getPrecision());
+                    info.put("precision",""+f.getPrecision());
                 }
                 columns.add(info);
             };
@@ -291,35 +335,6 @@ public class SalesforceBulkInputPlugin
             log.error("{}", e.getClass(), e);
         }
 
-        // LineDecoder.DecoderTask decoderTask = config.loadConfig(LineDecoder.DecoderTask.class);
-        // LineDecoder decoder = new LineDecoder(new ListFileInput(ImmutableList.of(ImmutableList.of((sample)))), decoderTask);
-
-        // List<String> sampleLines = new ArrayList<>();
-        // while (true) {
-        //     if (!decoder.nextFile()) {
-        //         break;
-        //     }
-        //     while (true) {
-        //         String line = decoder.poll();
-        //         if (line == null) {
-        //             break;
-        //         }
-        //         sampleLines.add(line);
-        //     }
-        // }
-
-        // GrokGuesser guesser = new GrokGuesser(
-        //                                       task.getGuessPatterns(),
-        //                                       task.getGrokPatternFiles()
-        //                                       );
-        // try {
-        //     String pattern = guesser.guessPattern(sampleLines);
-        //     List<Map<String, Object>> columns = guesser.guessColumns(sampleLines, pattern);
-        //     return Exec.newConfigDiff().set(
-        //                                     "parser", ImmutableMap.of("grok_pattern", pattern, "columns", columns));
-        // } catch (GrokException e) {
-        //     return Exec.newConfigDiff();
-        // }
         return Exec.newConfigDiff();
     }
 
