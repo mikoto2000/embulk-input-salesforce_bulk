@@ -202,16 +202,6 @@ public class SalesforceBulkWrapper implements AutoCloseable {
                 }
                 // Get the fields
                 return describeSObjectResult.getFields();
-                // System.out.println("Field name: " + field.getName());
-                // System.out.println("Field label: " + field.getLabel());
-
-                // if (field.getType().equals(FieldType.reference)) {
-                //     System.out.println("Field references the " + "following objects:");
-                //     String[] referenceTos = field.getReferenceTo();
-                //     for (int j = 0; j < referenceTos.length; j++) {
-                //         System.out.println("\t" + referenceTos[j]);
-                //     }
-                // }
             }
         }catch (ConnectionException ce) {
             ce.printStackTrace();

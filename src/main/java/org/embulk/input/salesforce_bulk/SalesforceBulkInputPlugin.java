@@ -8,12 +8,15 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalField;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 import org.embulk.config.TaskReport;
 import org.embulk.config.Config;
@@ -68,7 +71,8 @@ public class SalesforceBulkInputPlugin
 
         // SOQL クエリ文字列 SELECT, FROM
         @Config("querySelectFrom")
-        public String getQuerySelectFrom();
+        @ConfigDefault("null")        
+        public Optional<String> getQuerySelectFrom();
 
         // SOQL クエリ文字列 WHERE
         @Config("queryWhere")
@@ -186,7 +190,7 @@ public class SalesforceBulkInputPlugin
         }
         return configDiff;
     }
-
+        
     @Override
     public void cleanup(TaskSource taskSource,
             Schema schema, int taskCount,
@@ -220,13 +224,19 @@ public class SalesforceBulkInputPlugin
             log.info("Login success.");
 
             // クエリの作成
-            String querySelectFrom = task.getQuerySelectFrom();
+            String querySelectFrom = task.getQuerySelectFrom().or("").trim();
             String queryWhere = task.getQueryWhere().or("");
             String queryOrder = task.getQueryOrder().or("");
             String column = task.getStartRowMarkerName().orNull();
             String value = task.getStartRowMarker().orNull();
 
             String query;
+
+            // select文の記載がない場合は自動生成
+            if(querySelectFrom.isEmpty()){
+                querySelectFrom = this.guessQuerySelectFromByTask(task);
+            }
+            
             query = querySelectFrom;
 
             if (!queryWhere.isEmpty()) {
@@ -285,12 +295,46 @@ public class SalesforceBulkInputPlugin
         return taskReport;
     }
 
+    public static String guessQuerySelectFromByTask(PluginTask task){
+        String from = task.getObjectType();
+        return guessQuerySelectFromByConfigSourceList(from,task.getColumns().getColumns().stream().map(cc->cc.getConfigSource()).collect(Collectors.toList()));
+    }
+        
+    public static String guessQuerySelectFromByConfigSourceList(String from, List<ConfigSource> cslist)
+    {
+        List<String> select_xs = new ArrayList<String>();
+        ConfigSource[] csarr = cslist.toArray(new ConfigSource[0]);
+        for(ConfigSource src : csarr){
+            if(src != null && src.has("name")){
+                String select = src.get(String.class, "name");
+                if(src.has("select")){
+                   select = src.get(String.class, "select");
+                }
+                select_xs.add(select);
+            }
+        }
+                
+        return
+            "SELECT "
+            + String.join(",", select_xs.toArray(new String[0]))
+            + " FROM " + from;
+    }
+    
     @Override
     public ConfigDiff guess(ConfigSource config)
     {
-        
         PluginTask task = config.loadConfig(PluginTask.class);
-
+        String querySelectFrom = task.getQuerySelectFrom().or("");
+        SchemaConfig sc = task.getColumns();
+        List<ColumnConfig> cclist = (sc == null) ? new ArrayList<ColumnConfig>() : sc.getColumns();
+        Map<String,ColumnConfig> ccmap = new HashMap<String,ColumnConfig>();
+        java.util.Iterator<ColumnConfig> itr = cclist.iterator();
+        while(itr.hasNext()){
+            ColumnConfig x = itr.next();
+            ccmap.put(x.getName(),x);
+        }
+        String[] columnNames = (cclist == null) ? new String[0] : cclist.stream().map(c->c.getName()).collect(Collectors.toList()).toArray(new String[0]);
+        
         try{
             SalesforceBulkWrapper sfbw =
                 new SalesforceBulkWrapper(task.getUserName(),
@@ -302,35 +346,47 @@ public class SalesforceBulkInputPlugin
                                           );
 
             Field[] fs = sfbw.getFieldsOf(task.getObjectType());
+            
+            Map<String,Field> col_info_map = new HashMap<String,Field>();
+            
+            if(columnNames == null || columnNames.length < 1){
+                columnNames= Arrays.stream(fs).map(x->x.getName()).collect(Collectors.toList()).toArray(new String[0]);
+            }
 
-
-              // columns:
-              // - type: integer
-              //   name: id
-              //   label: ID
-              // - type: string
-              //   name: name
-              //   label: 名前
-             
-            List<Map<String, String>> columns = new ArrayList<Map<String, String>>();
             for(Field f : fs){
-                Map<String, String> info = new HashMap<String, String>();
-                info.put("type",""+f.getType());
-                info.put("name",f.getName());
-                String label = f.getLabel();
-                if(label!=null || label.equals("")){
-                    info.put("label",label);
-                }
-                if(f.getLength() > 0){
-                    info.put("size", ""+f.getLength());
-                }
-                if(f.getPrecision() > 0){
-                    info.put("precision",""+f.getPrecision());
-                }
-                columns.add(info);
-            };
+                col_info_map.put(f.getName(),f);
+            }
 
-            return Exec.newConfigDiff().set("columns", columns);
+            List<ConfigSource> srcs = new ArrayList<ConfigSource>();
+            for(String name : columnNames){
+                Field f = col_info_map.get(name);
+                ColumnConfig cc = ccmap.get(name);
+                ConfigSource src = cc.getConfigSource();
+                if(f != null){
+                    String type = cc.getType().getName();
+                    src.set("type",this.castTypeName(""+f.getType()));
+                    
+                    String label = f.getLabel();
+                    if(label!=null || label.equals("")){
+                        src.set("label",label);
+                    }
+                    if(f.getLength() > 0){
+                        src.set("size", ""+f.getLength());
+                    }
+                    if(f.getPrecision() > 0){
+                        src.set("precision",""+f.getPrecision());
+                    }
+                }
+                srcs.add(src);                
+            }
+            
+            if(querySelectFrom == null || querySelectFrom.trim().equals("")){
+                querySelectFrom = this.guessQuerySelectFromByConfigSourceList(task.getObjectType(),srcs);
+            }
+
+            return Exec.newConfigDiff()
+                .set("columns", srcs)
+                .set("querySelectFrom", querySelectFrom);
         } catch (ConnectionException|AsyncApiException e) {
             log.error("{}", e.getClass(), e);
         }
