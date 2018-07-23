@@ -3,7 +3,6 @@ package org.embulk.input.salesforce_bulk;
 import com.google.common.base.Optional;
 import com.sforce.async.AsyncApiException;
 import com.sforce.ws.ConnectionException;
-
 import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -45,6 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.Logger;
 
 import com.sforce.soap.partner.Field;
+import com.sforce.soap.partner.DescribeGlobalSObjectResult;
 
 public class SalesforceBulkInputPlugin
         implements InputPlugin
@@ -115,6 +115,10 @@ public class SalesforceBulkInputPlugin
         @Config("queryAll")
         @ConfigDefault("false")
         public Boolean getQueryAll();
+
+        @Config("showAllObjectTypesByGuess")
+        @ConfigDefault("false")
+        public Boolean getShowAllObjectTypesByGuess();
     }
 
     private Logger log = Exec.getLogger(SalesforceBulkInputPlugin.class);
@@ -417,7 +421,20 @@ public class SalesforceBulkInputPlugin
                 querySelectFrom = this.guessQuerySelectFromByConfigSourceList(task.getObjectType(),srcs);
             }
 
-            return Exec.newConfigDiff()
+            ConfigDiff rtn = Exec.newConfigDiff();
+            if(task.getShowAllObjectTypesByGuess()){
+                List<Map<String,String>> objects = new ArrayList<Map<String,String>>();
+                DescribeGlobalSObjectResult[] sobjs = sfbw.getDescribeGlobalSObjectResults();
+                for( DescribeGlobalSObjectResult sobj : sobjs ){
+                    Map<String,String> info = new HashMap<String,String>();
+                    info.put("name" ,sobj.getName());
+                    info.put("label",sobj.getLabel());
+                    objects.add(info);
+                }
+                rtn = rtn.set("objectTypes",objects);
+            }
+            
+            return rtn
                 .set("columns", srcs)
                 .set("querySelectFrom", querySelectFrom);
         } catch (ConnectionException|AsyncApiException e) {
