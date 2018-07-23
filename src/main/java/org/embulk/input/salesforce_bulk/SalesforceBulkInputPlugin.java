@@ -319,6 +319,19 @@ public class SalesforceBulkInputPlugin
             + String.join(",", select_xs.toArray(new String[0]))
             + " FROM " + from;
     }
+
+    public static String guessFormat(String type){
+        switch(type){
+        case "date":
+            return "%Y-%m-%d";
+        case "datetime":
+            return "%Y-%m-%dT%H:%M:%S.%N%z";
+        case "time":
+            return "%H:%M:%S.%N%z";
+        default:
+            return null;
+        }
+    }
     
     @Override
     public ConfigDiff guess(ConfigSource config)
@@ -363,8 +376,9 @@ public class SalesforceBulkInputPlugin
                 ColumnConfig cc = ccmap.get(name);
                 ConfigSource src = cc.getConfigSource();
                 if(f != null){
-                    String type = cc.getType().getName();
-                    src.set("type",this.castTypeName(""+f.getType()));
+                    String typeOnSfdc = ""+f.getType();
+                    String type = this.castTypeName(typeOnSfdc);
+                    src.set("type",type);
                     
                     String label = f.getLabel();
                     if(label!=null || label.equals("")){
@@ -376,8 +390,27 @@ public class SalesforceBulkInputPlugin
                     if(f.getPrecision() > 0){
                         src.set("precision",""+f.getPrecision());
                     }
+
+                    // start guess format
+                    ConfigSource option = cc.getOption();
+                    if(option != null){
+                        String format = null;
+                        if(option.has("format")){
+                            format = option.get(String.class,"format");
+                        }
+                        format = format == null ? "" : format;
+                        if(format.isEmpty()){
+                            format = this.guessFormat(typeOnSfdc);
+                        }
+                        format = format == null ? "" : format;
+                        if(!format.isEmpty()){
+                            // set format
+                            src.set("format",format);
+                        }
+                    }
+                    // end guess format
                 }
-                srcs.add(src);                
+                srcs.add(src);
             }
             
             if(querySelectFrom == null || querySelectFrom.trim().equals("")){
