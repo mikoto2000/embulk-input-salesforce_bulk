@@ -431,7 +431,7 @@ public class SalesforceBulkInputPlugin
                     info.put("label",sobj.getLabel());
                     objects.add(info);
                 }
-                rtn.set("objectTypes",objects);
+                rtn = rtn.set("objectTypes",objects);
             }
             
             return rtn
