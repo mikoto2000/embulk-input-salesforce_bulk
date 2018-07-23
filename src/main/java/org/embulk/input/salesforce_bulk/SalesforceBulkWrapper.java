@@ -22,6 +22,10 @@ import com.sforce.async.OperationEnum;
 import com.sforce.async.QueryResultList;
 
 import com.sforce.soap.partner.PartnerConnection;
+import com.sforce.soap.partner.DescribeSObjectResult;
+import com.sforce.soap.partner.DescribeGlobalResult;
+import com.sforce.soap.partner.DescribeGlobalSObjectResult;
+import com.sforce.soap.partner.Field;
 
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
@@ -174,6 +178,37 @@ public class SalesforceBulkWrapper implements AutoCloseable {
         partnerConnection.logout();
     }
 
+    public DescribeGlobalSObjectResult[] getDescribeGlobalSObjectResults() {
+        try {
+            DescribeGlobalResult describeGlobalResult = this.partnerConnection.describeGlobal();
+            if(describeGlobalResult == null) {
+                return new DescribeGlobalSObjectResult[0];
+            }
+            return describeGlobalResult.getSobjects();
+        }catch (ConnectionException ce) {
+            ce.printStackTrace();
+        }
+        return new DescribeGlobalSObjectResult[0];
+    }
+
+    public Field[] getFieldsOf(String objectName){
+        try {
+            DescribeSObjectResult[] describeSObjectResults = this.partnerConnection.describeSObjects(new String[]{objectName});
+            if (describeSObjectResults != null && describeSObjectResults.length > 0) {
+                DescribeSObjectResult describeSObjectResult = describeSObjectResults[0];
+                System.out.println("sObject name: " + describeSObjectResult.getName());
+                if (describeSObjectResult.isCreateable()){
+                    System.out.println("Createable");
+                }
+                // Get the fields
+                return describeSObjectResult.getFields();
+            }
+        }catch (ConnectionException ce) {
+            ce.printStackTrace();
+        }
+        return new Field[0];
+    }
+    
     private PartnerConnection createPartnerConnection(
             String endpointUrl,
             String userName,
