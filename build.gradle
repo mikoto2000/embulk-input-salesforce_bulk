@@ -1,6 +1,6 @@
 plugins {
     id "com.jfrog.bintray" version "1.1"
-    id "com.github.jruby-gradle.base" version "0.1.5"
+    id "com.github.jruby-gradle.base" version "1.5.0"
     id "java"
     id "eclipse"
 }
@@ -41,14 +41,16 @@ task classpath(type: Copy, dependsOn: ["jar"]) {
 clean { delete "classpath" }
 
 task gem(type: JRubyExec, dependsOn: ["gemspec", "classpath"]) {
-    jrubyArgs "-rrubygems/gem_runner", "-eGem::GemRunner.new.run(ARGV)", "build"
-    script "${project.name}.gemspec"
+    jrubyArgs "-S"
+    script "gem"
+    scriptArgs "build", "${project.name}.gemspec"
     doLast { ant.move(file: "${project.name}-${project.version}.gem", todir: "pkg") }
 }
 
 task gemPush(type: JRubyExec, dependsOn: ["gem"]) {
-    jrubyArgs "-rrubygems/gem_runner", "-eGem::GemRunner.new.run(ARGV)", "push"
-    script "pkg/${project.name}-${project.version}.gem"
+    jrubyArgs "-S"
+    script "gem"
+    scriptArgs "push", "pkg/${project.name}-${project.version}.gem"
 }
 
 task "package"(dependsOn: ["gemspec", "classpath"]) << {
