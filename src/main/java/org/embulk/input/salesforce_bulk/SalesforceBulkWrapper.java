@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import java.nio.charset.StandardCharsets;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -149,7 +151,7 @@ public class SalesforceBulkWrapper implements AutoCloseable {
                 new CSVReader(bulkConnection.getQueryResultStream(
                             batchInfo.getJobId(),
                             batchInfo.getId(),
-                            queryResultId));
+                            queryResultId), StandardCharsets.UTF_8.name());
 
             // バッチ作成時の CSV 制限は今回関係ないのですべて Integer.MAX_VALUE に設定。
             rdr.setMaxRowsInFile(Integer.MAX_VALUE);
