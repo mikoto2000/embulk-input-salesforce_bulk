@@ -13,6 +13,7 @@ Salesforce Bulk API の一括クエリ結果を取得します。
 
 - **userName**: Salesforce user name.(string, required)
 - **password**: Salesforce password.(string, required)
+    - Set a string that concatenated the password and security token.
 - **authEndpointUrl**: Salesforce login endpoint URL.(string, default is "https://login.salesforce.com/services/Soap/u/39.0")
 - **objectType**: object type of JobInfo.(string, required)
     - Usually same as query's object.(If **querySelectFrom** is `(snip) FROM xxx (snip)` then **dataType** is `xxx`)
