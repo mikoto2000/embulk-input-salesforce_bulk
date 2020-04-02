@@ -237,6 +237,7 @@ public class SalesforceBulkInputPlugin
             }
         } catch (ConnectionException|AsyncApiException|InterruptedException|IOException e) {
             log.error("{}", e.getClass(), e);
+            throw new RuntimeException("SalesforceBulkWrapperError");
         }
 
         return taskReport;
