@@ -3,11 +3,11 @@
 {
 	"name": "Java",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/java:1-21-bullseye",
+	"image": "mcr.microsoft.com/devcontainers/java:1-8-bullseye",
 
 	"features": {
 		"ghcr.io/devcontainers/features/java:1": {
-			"version": "21",
+			"version": "8",
 			"installMaven": "false",
 			"installGradle": "true"
 		}
