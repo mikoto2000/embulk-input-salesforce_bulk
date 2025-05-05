@@ -122,8 +122,6 @@ public class SalesforceBulkInputPlugin
 
     private static final ConfigMapperFactory CONFIG_MAPPER_FACTORY = ConfigMapperFactory.builder().addDefaultModules().build();
 
-    private final Map<String, TimestampFormatter> timestampFormatters = new HashMap<>();
-
 
     @Override
     public ConfigDiff transaction(ConfigSource config,
@@ -131,25 +129,6 @@ public class SalesforceBulkInputPlugin
     {
         final ConfigMapper configMapper = CONFIG_MAPPER_FACTORY.createConfigMapper();
         final PluginTask task = configMapper.map(config, PluginTask.class);
-
-        for (org.embulk.util.config.units.ColumnConfig columnConfig : task.getColumns().getColumns()) {
-            log.info("name: {}, type: {}.", columnConfig.getName(), columnConfig.getType());
-            log.info("IKUYO.");
-            if (columnConfig.getType().toString().equals("timestamp")) {
-                log.info("KITAYO.");
-                final TimestampColumnOption columnOption = configMapper.map(columnConfig.getOption(), TimestampColumnOption.class);
-                log.info("columnOption: {}", columnOption);
-
-                TimestampFormatter formatter = TimestampFormatter
-                    .builder(columnOption.getFormat().orElse(task.getDefaultTimestampFormat()))
-                    .setDefaultZoneFromString(columnOption.getTimeZoneId().orElse(task.getDefaultTimeZoneId()))
-                    .setDefaultDateFromString(columnOption.getDate().orElse(task.getDefaultDate()))
-                    .build();
-                log.info("formatter: {}", formatter);
-
-                timestampFormatters.put(columnConfig.getName(), formatter);
-            }
-        }
 
         Schema schema = task.getColumns().toSchema();
         int taskCount = 1;  // number of run() method calls
@@ -190,8 +169,25 @@ public class SalesforceBulkInputPlugin
             Schema schema, int taskIndex,
             PageOutput output)
     {
+        final ConfigMapper configMapper = CONFIG_MAPPER_FACTORY.createConfigMapper();
         final TaskMapper taskMapper = CONFIG_MAPPER_FACTORY.createTaskMapper();
         final PluginTask task = taskMapper.map(taskSource, PluginTask.class);
+
+        final Map<String, TimestampFormatter> timestampFormatters = new HashMap<>();
+
+        for (org.embulk.util.config.units.ColumnConfig columnConfig : task.getColumns().getColumns()) {
+            if (columnConfig.getType().toString().equals("timestamp")) {
+                final TimestampColumnOption columnOption = configMapper.map(columnConfig.getOption(), TimestampColumnOption.class);
+
+                TimestampFormatter formatter = TimestampFormatter
+                    .builder(columnOption.getFormat().orElse(task.getDefaultTimestampFormat()), true)
+                    .setDefaultZoneFromString(columnOption.getTimeZoneId().orElse(task.getDefaultTimeZoneId()))
+                    .setDefaultDateFromString(columnOption.getDate().orElse(task.getDefaultDate()))
+                    .build();
+
+                timestampFormatters.put(columnConfig.getName(), formatter);
+            }
+        }
 
         BufferAllocator allocator = Exec.getBufferAllocator();
         PageBuilder pageBuilder = new PageBuilder(allocator, schema, output);
