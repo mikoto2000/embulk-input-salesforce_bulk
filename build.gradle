@@ -48,8 +48,10 @@ dependencies {
     runtimeOnly "org.embulk:embulk-util-config:0.3.4"
     runtimeOnly "org.embulk:embulk-util-timestamp:0.2.2"
 
-    testCompileOnly "junit:junit:4.+"
-    testCompileOnly "org.hamcrest:hamcrest-all:1.+"
+    testImplementation "junit:junit:4.+"
+    testImplementation "org.hamcrest:hamcrest-all:1.+"
+    testImplementation 'com.force.api:force-wsc:39.+'
+    testImplementation 'com.force.api:force-partner-api:39.+'
 }
 
 sourceSets {
