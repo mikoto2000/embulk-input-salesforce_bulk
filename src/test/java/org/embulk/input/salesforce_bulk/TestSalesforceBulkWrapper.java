@@ -5,8 +5,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.io.InputStream;
 
-import com.sforce.async.QueryResultList;
-
 import static org.junit.Assert.*;
 import org.junit.Test;
 
