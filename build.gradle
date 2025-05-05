@@ -29,16 +29,24 @@ tasks.javadoc {
     options.encoding = 'UTF-8'
 }
 
+group = "org.embulk"
 version = "0.2.3"
+description = "Salesforce Bulk input plugin for Embulk."
 
 dependencies {
     compileOnly 'com.force.api:force-wsc:39.+'
     compileOnly 'com.force.api:force-partner-api:39.+'
+    runtimeOnly 'com.force.api:force-wsc:39.+'
+    runtimeOnly 'com.force.api:force-partner-api:39.+'
 
     compileOnly "org.embulk:embulk-api:0.10.43"
     compileOnly "org.embulk:embulk-spi:0.10.43"
     compileOnly "org.embulk:embulk-util-config:0.3.4"
     compileOnly "org.embulk:embulk-util-timestamp:0.2.2"
+    runtimeOnly "org.embulk:embulk-api:0.10.43"
+    runtimeOnly "org.embulk:embulk-spi:0.10.43"
+    runtimeOnly "org.embulk:embulk-util-config:0.3.4"
+    runtimeOnly "org.embulk:embulk-util-timestamp:0.2.2"
 
     testCompileOnly "junit:junit:4.+"
     testCompileOnly "org.hamcrest:hamcrest-all:1.+"
@@ -110,7 +118,7 @@ publishing {
             // Some pom.xml attributes are mandatory in Maven Central.
             // See: https://central.sonatype.org/pages/requirements.html
             pom {
-                packaging "jar"
+                packaging = "jar"
 
                 name = project.name
                 description = project.description
@@ -164,19 +172,19 @@ publishing {
     }
 }
 
-// The signing settings are usually required to publish the plugin to Maven Central.
-// See: https://central.sonatype.org/publish/requirements/gpg/
-signing {
-    // Just an optional technique to specify a GPG key and password from Gradle properties.
-    //
-    // Set your GPG key into "signingKey" in the ASCII armor format.
-    // Set your GPG key password into "signingPassword".
-    //
-    // It is sometimes useful to publish the plugin to Maven Central from CI like GitHub Actions.
-    if (project.hasProperty("signingKey") && project.hasProperty("signingPassword")) {
-        logger.lifecycle("Signing with an in-memory key.")
-        useInMemoryPgpKeys(signingKey, signingPassword)
-    }
-
-    sign publishing.publications.maven
-}
+//// The signing settings are usually required to publish the plugin to Maven Central.
+//// See: https://central.sonatype.org/publish/requirements/gpg/
+//signing {
+//    // Just an optional technique to specify a GPG key and password from Gradle properties.
+//    //
+//    // Set your GPG key into "signingKey" in the ASCII armor format.
+//    // Set your GPG key password into "signingPassword".
+//    //
+//    // It is sometimes useful to publish the plugin to Maven Central from CI like GitHub Actions.
+//    if (project.hasProperty("signingKey") && project.hasProperty("signingPassword")) {
+//        logger.lifecycle("Signing with an in-memory key.")
+//        useInMemoryPgpKeys(signingKey, signingPassword)
+//    }
+//
+//    sign publishing.publications.maven
+//}

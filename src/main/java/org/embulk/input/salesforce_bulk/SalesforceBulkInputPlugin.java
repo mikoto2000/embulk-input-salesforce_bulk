@@ -133,14 +133,19 @@ public class SalesforceBulkInputPlugin
         final PluginTask task = configMapper.map(config, PluginTask.class);
 
         for (org.embulk.util.config.units.ColumnConfig columnConfig : task.getColumns().getColumns()) {
-            if (columnConfig.getType().equals("timestamp")) {
+            log.info("name: {}, type: {}.", columnConfig.getName(), columnConfig.getType());
+            log.info("IKUYO.");
+            if (columnConfig.getType().toString().equals("timestamp")) {
+                log.info("KITAYO.");
                 final TimestampColumnOption columnOption = configMapper.map(columnConfig.getOption(), TimestampColumnOption.class);
+                log.info("columnOption: {}", columnOption);
 
                 TimestampFormatter formatter = TimestampFormatter
                     .builder(columnOption.getFormat().orElse(task.getDefaultTimestampFormat()))
                     .setDefaultZoneFromString(columnOption.getTimeZoneId().orElse(task.getDefaultTimeZoneId()))
                     .setDefaultDateFromString(columnOption.getDate().orElse(task.getDefaultDate()))
                     .build();
+                log.info("formatter: {}", formatter);
 
                 timestampFormatters.put(columnConfig.getName(), formatter);
             }
