@@ -1,0 +1,71 @@
+{
+  "remoteEnv": {
+    "EDITOR": "~/squashfs-root/AppRun",
+    "PAGER": "sed -r 's/\\x1B\\[[0-9;]*[mGKH]//g' | ~/squashfs-root/AppRun -R -",
+    "LESSCHARSET": "utf-8",
+    "SHELL": "bash",
+    "TERM": "xterm-256color",
+    "HISTCONTROL": "erasedups",
+    // If use WSLG
+    // "DISPLAY": "${localEnv:DISPLAY}",
+    // "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+    // "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+    // "PULSE_SERVER": "${localEnv:PULSE_SERVER}",
+  },
+  // devcontainer/cli はまだ forwardPorts に対応していないため、
+  // 必要に応じて forwardPorts の定義を appPort に転記する。
+  // ※ コンテナ側で Listen する際は、 `127.0.0.1` **ではなく** `0.0.0.0` で Listen すること。
+  // "appPort": [
+  // ],
+  // Linux で実行する場合には、 runArgs をコメントアウトし、コンテナからホストへの接続ができるようにしてください
+  //"runArgs": [
+  //  "--add-host=host.docker.internal:host-gateway"
+  //],
+  "mounts": [
+    {
+      "type": "bind",
+      "source": "${localEnv:HOME}/.vim",
+      "target": "/home/vscode/.vim"
+    },
+    {
+      "type": "bind",
+      "source": "${localEnv:HOME}/.gitconfig",
+      "target": "/home/vscode/.gitconfig"
+    },
+    {
+      "type": "bind",
+      "source": "${localEnv:HOME}/.ssh",
+      "target": "/home/vscode/.ssh"
+    },
+    // If use host's bashrc
+    //{
+    //  "type": "bind",
+    //  "source": "${localEnv:HOME}/.bashrc",
+    //  "target": "/home/vscode/.bashrc"
+    //},
+    // If use WSLG
+    //{
+    //  "type": "bind",
+    //  "source": "/tmp/.X11-unix",
+    //  "target": "/tmp/.X11-unix"
+    //},
+    //{
+    //  "type": "bind",
+    //  "source": "/mnt/wslg",
+    //  "target": "/mnt/wslg"
+    //},
+  ],
+  // denops など、別の実行環境が必要な場合や、
+  // 後乗せで追加したいツールがある場合には以下の対象行をコメントアウトするか
+  // https://containers.dev/features から必要な feature を探して追加してください。
+  //"features": {
+  //  "ghcr.io/devcontainers-community/features/deno:1": {}
+  //  "ghcr.io/devcontainers/features/node:1": {}
+  //  "ghcr.io/devcontainers/features/python:1": {}
+  //  "ghcr.io/devcontainers/features/ruby:1": {}
+  //  "ghcr.io/devcontainers-extra/features/fzf:1": {}
+  //  "ghcr.io/jungaretti/features/ripgrep:1": {}
+  //  "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+  //  "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  //}
+}

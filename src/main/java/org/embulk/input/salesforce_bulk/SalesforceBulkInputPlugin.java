@@ -1,41 +1,41 @@
 package org.embulk.input.salesforce_bulk;
 
-import com.google.common.base.Optional;
 import com.sforce.async.AsyncApiException;
 import com.sforce.ws.ConnectionException;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalField;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.embulk.config.TaskReport;
-import org.embulk.config.Config;
-import org.embulk.config.ConfigDefault;
 import org.embulk.config.ConfigDiff;
-import org.embulk.config.ConfigInject;
 import org.embulk.config.ConfigSource;
-import org.embulk.config.Task;
 import org.embulk.config.TaskSource;
 import org.embulk.spi.BufferAllocator;
 import org.embulk.spi.Column;
-import org.embulk.spi.ColumnConfig;
 import org.embulk.spi.ColumnVisitor;
 import org.embulk.spi.Exec;
 import org.embulk.spi.InputPlugin;
 import org.embulk.spi.PageBuilder;
 import org.embulk.spi.PageOutput;
 import org.embulk.spi.Schema;
-import org.embulk.spi.SchemaConfig;
-import org.embulk.spi.time.Timestamp;
-import org.embulk.spi.time.TimestampParseException;
-import org.embulk.spi.time.TimestampParser;
-import org.embulk.spi.util.Timestamps;
-import org.slf4j.Logger;
+
+import org.embulk.util.config.Config;
+import org.embulk.util.config.ConfigDefault;
+import org.embulk.util.config.ConfigMapper;
+import org.embulk.util.config.ConfigMapperFactory;
+import org.embulk.util.config.Task;
+import org.embulk.util.config.TaskMapper;
+import org.embulk.util.config.units.SchemaConfig;
+import org.embulk.util.timestamp.TimestampFormatter;
 
 import org.slf4j.Logger;
 
@@ -43,7 +43,7 @@ public class SalesforceBulkInputPlugin
         implements InputPlugin
 {
     public interface PluginTask
-            extends Task, TimestampParser.Task
+            extends Task
     {
         // 認証用エンドポイントURL
         @Config("authEndpointUrl")
@@ -100,22 +100,35 @@ public class SalesforceBulkInputPlugin
         @ConfigDefault("null")
         public Optional<String> getStartRowMarker();
 
-        // 謎。バッファアロケーターの実装を定義？
-        @ConfigInject
-        public BufferAllocator getBufferAllocator();
-
         @Config("queryAll")
         @ConfigDefault("false")
         public Boolean getQueryAll();
+
+        @Config("default_timezone")
+        @ConfigDefault("\"UTC\"")
+        String getDefaultTimeZoneId();
+
+        @Config("default_timestamp_format")
+        @ConfigDefault("\"%Y-%m-%d %H:%M:%S.%N %z\"")
+        String getDefaultTimestampFormat();
+
+        @Config("default_date")
+        @ConfigDefault("\"1970-01-01\"")
+        String getDefaultDate();
+
     }
 
     private Logger log = Exec.getLogger(SalesforceBulkInputPlugin.class);
+
+    private static final ConfigMapperFactory CONFIG_MAPPER_FACTORY = ConfigMapperFactory.builder().addDefaultModules().build();
+
 
     @Override
     public ConfigDiff transaction(ConfigSource config,
             InputPlugin.Control control)
     {
-        PluginTask task = config.loadConfig(PluginTask.class);
+        final ConfigMapper configMapper = CONFIG_MAPPER_FACTORY.createConfigMapper();
+        final PluginTask task = configMapper.map(config, PluginTask.class);
 
         Schema schema = task.getColumns().toSchema();
         int taskCount = 1;  // number of run() method calls
@@ -156,9 +169,27 @@ public class SalesforceBulkInputPlugin
             Schema schema, int taskIndex,
             PageOutput output)
     {
-        PluginTask task = taskSource.loadTask(PluginTask.class);
+        final ConfigMapper configMapper = CONFIG_MAPPER_FACTORY.createConfigMapper();
+        final TaskMapper taskMapper = CONFIG_MAPPER_FACTORY.createTaskMapper();
+        final PluginTask task = taskMapper.map(taskSource, PluginTask.class);
 
-        BufferAllocator allocator = task.getBufferAllocator();
+        final Map<String, TimestampFormatter> timestampFormatters = new HashMap<>();
+
+        for (org.embulk.util.config.units.ColumnConfig columnConfig : task.getColumns().getColumns()) {
+            if (columnConfig.getType().toString().equals("timestamp")) {
+                final TimestampColumnOption columnOption = configMapper.map(columnConfig.getOption(), TimestampColumnOption.class);
+
+                TimestampFormatter formatter = TimestampFormatter
+                    .builder(columnOption.getFormat().orElse(task.getDefaultTimestampFormat()), true)
+                    .setDefaultZoneFromString(columnOption.getTimeZoneId().orElse(task.getDefaultTimeZoneId()))
+                    .setDefaultDateFromString(columnOption.getDate().orElse(task.getDefaultDate()))
+                    .build();
+
+                timestampFormatters.put(columnConfig.getName(), formatter);
+            }
+        }
+
+        BufferAllocator allocator = Exec.getBufferAllocator();
         PageBuilder pageBuilder = new PageBuilder(allocator, schema, output);
 
         // start_row_marker 取得のための前準備
@@ -178,10 +209,10 @@ public class SalesforceBulkInputPlugin
 
             // クエリの作成
             String querySelectFrom = task.getQuerySelectFrom();
-            String queryWhere = task.getQueryWhere().or("");
-            String queryOrder = task.getQueryOrder().or("");
-            String column = task.getStartRowMarkerName().orNull();
-            String value = task.getStartRowMarker().orNull();
+            String queryWhere = task.getQueryWhere().orElse("");
+            String queryOrder = task.getQueryOrder().orElse("");
+            String column = task.getStartRowMarkerName().orElse(null);
+            String value = task.getStartRowMarker().orElse(null);
 
             String query;
             query = querySelectFrom;
@@ -213,7 +244,7 @@ public class SalesforceBulkInputPlugin
 
             for (Map<String, String> row : queryResults) {
                 // Visitor 作成
-                ColumnVisitor visitor = new ColumnVisitorImpl(row, task, pageBuilder);
+                ColumnVisitor visitor = new ColumnVisitorImpl(row, task, pageBuilder, timestampFormatters);
 
                 // スキーマ解析
                 schema.visitColumns(visitor);
@@ -251,15 +282,13 @@ public class SalesforceBulkInputPlugin
 
     class ColumnVisitorImpl implements ColumnVisitor {
         private final Map<String, String> row;
-        private final TimestampParser[] timestampParsers;
         private final PageBuilder pageBuilder;
+        private final Map<String, TimestampFormatter> timestampFormatters;
 
-        ColumnVisitorImpl(Map<String, String> row, PluginTask task, PageBuilder pageBuilder) {
+        ColumnVisitorImpl(Map<String, String> row, PluginTask task, PageBuilder pageBuilder, Map<String, TimestampFormatter> timestampFormatters) {
             this.row = row;
             this.pageBuilder = pageBuilder;
-
-            this.timestampParsers = Timestamps.newTimestampColumnParsers(
-                    task, task.getColumns());
+            this.timestampFormatters = timestampFormatters;
         }
 
         @Override
@@ -325,16 +354,27 @@ public class SalesforceBulkInputPlugin
             if (value == null) {
                 pageBuilder.setNull(column);
             } else {
-                try {
-                    Timestamp timestamp = timestampParsers[column.getIndex()]
-                            .parse(value);
-                    pageBuilder.setTimestamp(column, timestamp);
-                } catch (TimestampParseException e) {
-                    log.error("TimestampParseError: Row: {}", row);
-                    log.error("{}", e);
-                    pageBuilder.setNull(column);
+                TimestampFormatter formatter = timestampFormatters.get(column.getName());
+                if (formatter == null) {
+                    throw new IllegalStateException("No timestamp formatter found for column: " + column.getName());
                 }
+                Instant timestamp = formatter.parse(value);
+                pageBuilder.setTimestamp(column, timestamp);
             }
         }
+    }
+
+    private interface TimestampColumnOption extends org.embulk.util.config.Task {
+        @Config("timezone")
+        @ConfigDefault("null")
+        java.util.Optional<String> getTimeZoneId();
+
+        @Config("format")
+        @ConfigDefault("null")
+        java.util.Optional<String> getFormat();
+
+        @Config("date")
+        @ConfigDefault("null")
+        java.util.Optional<String> getDate();
     }
 }

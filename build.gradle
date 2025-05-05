@@ -1,28 +1,57 @@
 plugins {
-    id "com.jfrog.bintray" version "1.1"
-    id "com.github.jruby-gradle.base" version "1.5.0"
     id "java"
     id "eclipse"
+    id "maven-publish"
+    id "signing"
+
+    // Apply this Gradle plugin.
+    id "org.embulk.embulk-plugins" version "0.7.0"
 }
-import com.github.jrubygradle.JRubyExec
+
 repositories {
     mavenCentral()
     jcenter()
 }
+
 configurations {
     provided
 }
 
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:deprecation" << "-Xlint:unchecked"
+    options.encoding = "UTF-8"
+}
+
+tasks.javadoc {
+    source = sourceSets.main.allJava
+    destinationDir = file("$buildDir/docs/javadoc")
+    classpath += configurations.compileClasspath
+    options.encoding = 'UTF-8'
+}
+
+group = "org.embulk"
 version = "0.2.3"
-[compileJava, compileTestJava]*.options*.encoding = "UTF-8"
+description = "Salesforce Bulk input plugin for Embulk."
 
 dependencies {
-    compile 'com.force.api:force-wsc:39.+'
-    compile 'com.force.api:force-partner-api:39.+'
-    compile  "org.embulk:embulk-core:0.8.14"
-    provided "org.embulk:embulk-core:0.8.14"
-    testCompile "junit:junit:4.+"
-    testCompile "org.hamcrest:hamcrest-all:1.+"
+    compileOnly 'com.force.api:force-wsc:39.+'
+    compileOnly 'com.force.api:force-partner-api:39.+'
+    runtimeOnly 'com.force.api:force-wsc:39.+'
+    runtimeOnly 'com.force.api:force-partner-api:39.+'
+
+    compileOnly "org.embulk:embulk-api:0.10.43"
+    compileOnly "org.embulk:embulk-spi:0.10.43"
+    compileOnly "org.embulk:embulk-util-config:0.3.4"
+    compileOnly "org.embulk:embulk-util-timestamp:0.2.2"
+    runtimeOnly "org.embulk:embulk-api:0.10.43"
+    runtimeOnly "org.embulk:embulk-spi:0.10.43"
+    runtimeOnly "org.embulk:embulk-util-config:0.3.4"
+    runtimeOnly "org.embulk:embulk-util-timestamp:0.2.2"
+
+    testImplementation "junit:junit:4.+"
+    testImplementation "org.hamcrest:hamcrest-all:1.+"
+    testImplementation 'com.force.api:force-wsc:39.+'
+    testImplementation 'com.force.api:force-partner-api:39.+'
 }
 
 sourceSets {
@@ -33,54 +62,131 @@ sourceSets {
     }
 }
 
-task classpath(type: Copy, dependsOn: ["jar"]) {
-    doFirst { file("classpath").deleteDir() }
-    from (configurations.runtime - configurations.provided + files(jar.archivePath))
-    into "classpath"
-}
-clean { delete "classpath" }
-
-task gem(type: JRubyExec, dependsOn: ["gemspec", "classpath"]) {
-    jrubyArgs "-S"
-    script "gem"
-    scriptArgs "build", "${project.name}.gemspec"
-    doLast { ant.move(file: "${project.name}-${project.version}.gem", todir: "pkg") }
+java {
+    withJavadocJar()
+    withSourcesJar()
 }
 
-task gemPush(type: JRubyExec, dependsOn: ["gem"]) {
-    jrubyArgs "-S"
-    script "gem"
-    scriptArgs "push", "pkg/${project.name}-${project.version}.gem"
+embulkPlugin {
+    // Set the plugin's main class.
+    mainClass = "org.embulk.input.salesforce_bulk.SalesforceBulkInputPlugin"
+
+    // Set: "decoder", "encoder", "filter", "formatter", "guess", "input", "output", or "parser"
+    category = "input"
+
+    // Set the "type" of the Embulk plugin used in Embulk's configuration YAML.
+    // For instance, it would be "example" for "embulk-input-example".
+    type = "salesforce_bulk"
 }
 
-task "package"(dependsOn: ["gemspec", "classpath"]) << {
-    println "> Build succeeded."
-    println "> You can run embulk with '-L ${file(".").absolutePath}' argument."
-}
-
-task gemspec {
-    ext.gemspecFile = file("${project.name}.gemspec")
-    inputs.file "build.gradle"
-    outputs.file gemspecFile
-    doLast { gemspecFile.write($/
-Gem::Specification.new do |spec|
-  spec.name          = "${project.name}"
-  spec.version       = "${project.version}"
-  spec.authors       = ["mikoto2000"]
-  spec.summary       = %[Salesforce Bulk input plugin for Embulk]
-  spec.description   = %[Loads records from Salesforce Bulk.]
-  spec.email         = ["mikoto2000@gmail.com"]
-  spec.licenses      = ["MIT"]
-  spec.homepage      = "https://github.com/mikoto2000/embulk-input-salesforce_bulk"
-
-  spec.files         = `git ls-files`.split("\n") + Dir["classpath/*.jar"]
-  spec.test_files    = spec.files.grep(%r"^(test|spec)/")
-  spec.require_paths = ["lib"]
-
-  spec.add_development_dependency 'bundler', ['~> 1.0']
-  spec.add_development_dependency 'rake', ['>= 10.0']
-end
-/$)
+javadoc {
+    options {
+        locale = 'ja_JP'
+        encoding = 'UTF-8'
     }
 }
-clean { delete "${project.name}.gemspec" }
+
+jar {
+    metaInf {
+        from rootProject.file("LICENSE.txt")
+    }
+}
+
+sourcesJar {
+    metaInf {
+        from rootProject.file("LICENSE.txt")
+    }
+}
+
+javadocJar {
+    metaInf {
+        from rootProject.file("LICENSE.txt")
+    }
+}
+
+
+// The publishing settings are usually required to publish the plugin to Maven Central.
+// Publish it by: "./gradlew publishMavenPublicationToMavenRepository"
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = project.group
+            artifactId = project.name
+
+            from components.java
+            // javadocJar and sourcesJar are added by java.withJavadocJar() and java.withSourcesJar() above.
+            // See: https://docs.gradle.org/current/javadoc/org/gradle/api/plugins/JavaPluginExtension.html
+
+            // Some pom.xml attributes are mandatory in Maven Central.
+            // See: https://central.sonatype.org/pages/requirements.html
+            pom {
+                packaging = "jar"
+
+                name = project.name
+                description = project.description
+                url = "https://github.com/mikoto2000/empulk-input-salesforce_bulk"
+
+                licenses {
+                    license {
+                        // See: http://central.sonatype.org/pages/requirements.html#license-information
+                        name = "MIT"
+                        url = "https://github.com/mikoto2000/empulk-input-salesforce_bulk/LICENSE.txt"
+                        distribution = "repo"
+                    }
+                }
+
+                developers {
+                    developer {
+                        name = "mikoto2000"
+                        email = "mikoto2000@gmail.com"
+                    }
+                }
+
+                scm {
+                    connection = "scm:git:git://github.com/mikoto2000/empulk-input-salesforce_bulk.git"
+                    developerConnection = "scm:git:git://github.com/mikoto2000/empulk-input-salesforce_bulk.git"
+                    url = "https://github.com/mikoto2000/empulk-input-salesforce_bulk"
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {  // publishMavenPublicationToMavenCentralRepository
+            name = "mavenCentral"
+
+            // Note that the URLs may be different in your case, depending on your OSSRH / Sonatype registration.
+            // See: https://central.sonatype.org/publish/publish-maven/
+            if (project.version.endsWith("-SNAPSHOT")) {
+                url "https://oss.sonatype.org/content/repositories/snapshots"
+            } else {
+                url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            }
+
+            // Just an optional technique to specify OSSRH username and password from Gradle properties.
+            //
+            // It is sometimes useful to publish the plugin to Maven Central from CI like GitHub Actions.
+            credentials {
+                username = project.hasProperty("ossrhUsername") ? ossrhUsername : ""
+                password = project.hasProperty("ossrhPassword") ? ossrhPassword : ""
+            }
+        }
+    }
+}
+
+//// The signing settings are usually required to publish the plugin to Maven Central.
+//// See: https://central.sonatype.org/publish/requirements/gpg/
+//signing {
+//    // Just an optional technique to specify a GPG key and password from Gradle properties.
+//    //
+//    // Set your GPG key into "signingKey" in the ASCII armor format.
+//    // Set your GPG key password into "signingPassword".
+//    //
+//    // It is sometimes useful to publish the plugin to Maven Central from CI like GitHub Actions.
+//    if (project.hasProperty("signingKey") && project.hasProperty("signingPassword")) {
+//        logger.lifecycle("Signing with an in-memory key.")
+//        useInMemoryPgpKeys(signingKey, signingPassword)
+//    }
+//
+//    sign publishing.publications.maven
+//}
