@@ -39,8 +39,8 @@ dependencies {
 
     compileOnly "org.embulk:embulk-api:0.10.43"
     compileOnly "org.embulk:embulk-spi:0.10.43"
-    compileOnly "org.embulk:embulk-util-config:0.3.4"
-    compileOnly "org.embulk:embulk-util-timestamp:0.2.2"
+    implementation "org.embulk:embulk-util-config:0.3.4"
+    implementation "org.embulk:embulk-util-timestamp:0.2.2"
 
     testImplementation "junit:junit:4.+"
     testImplementation "org.hamcrest:hamcrest-all:1.+"
