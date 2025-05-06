@@ -34,24 +34,16 @@ version = "0.3.0"
 description = "Salesforce Bulk input plugin for Embulk."
 
 dependencies {
-    compileOnly 'com.force.api:force-wsc:39.+'
-    compileOnly 'com.force.api:force-partner-api:39.+'
-    runtimeOnly 'com.force.api:force-wsc:39.+'
-    runtimeOnly 'com.force.api:force-partner-api:39.+'
+    implementation 'com.force.api:force-wsc:39.+'
+    implementation 'com.force.api:force-partner-api:39.+'
 
     compileOnly "org.embulk:embulk-api:0.10.43"
     compileOnly "org.embulk:embulk-spi:0.10.43"
     compileOnly "org.embulk:embulk-util-config:0.3.4"
     compileOnly "org.embulk:embulk-util-timestamp:0.2.2"
-    runtimeOnly "org.embulk:embulk-api:0.10.43"
-    runtimeOnly "org.embulk:embulk-spi:0.10.43"
-    runtimeOnly "org.embulk:embulk-util-config:0.3.4"
-    runtimeOnly "org.embulk:embulk-util-timestamp:0.2.2"
 
     testImplementation "junit:junit:4.+"
     testImplementation "org.hamcrest:hamcrest-all:1.+"
-    testImplementation 'com.force.api:force-wsc:39.+'
-    testImplementation 'com.force.api:force-partner-api:39.+'
 }
 
 sourceSets {
