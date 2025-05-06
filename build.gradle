@@ -34,8 +34,8 @@ version = "0.3.0"
 description = "Salesforce Bulk input plugin for Embulk."
 
 dependencies {
-    implementation 'com.force.api:force-wsc:39.+'
-    implementation 'com.force.api:force-partner-api:39.+'
+    implementation 'com.force.api:force-wsc:62.+'
+    implementation 'com.force.api:force-partner-api:62.+'
 
     compileOnly "org.embulk:embulk-api:0.10.43"
     compileOnly "org.embulk:embulk-spi:0.10.43"
